@@ -20,19 +20,20 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<WarehouseDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-builder.Services.AddCors(options => {
-    options.AddDefaultPolicy(policy => {
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("GlobalSyntaxPolicy", policy =>
+    {
+        policy.WithOrigins("https://gsyntaxhosting.com", "http://gsyntaxhosting.com", "http://localhost:4200") 
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
 var app = builder.Build();
-app.UseCors(
-    options =>
-    {
-        options.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
-    }
-);
+app.UseRouting();
+app.UseCors("GlobalSyntaxPolicy");
+
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
