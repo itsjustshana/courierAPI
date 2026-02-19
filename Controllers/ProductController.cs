@@ -27,6 +27,15 @@ public class ProductsController : ControllerBase
     {
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
+
+        var historyEntry = new PriceHistory
+        {
+            ProductId = product.Id,
+            PricePerKg = product.CurrentPricePerKg,
+            EffectiveDate = DateTime.Now
+        };
+        _context.PriceHistories.Add(historyEntry);
+        await _context.SaveChangesAsync();
         
         return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
     }
@@ -90,6 +99,8 @@ public async Task<IActionResult> UpdateProductImage(int id, [FromBody] string im
 
     return Ok(new { message = "Image updated successfully", image = img });
 }
+
+//out of stock vs in stock
 [HttpPut("{id}/update-availability")]
 public async Task<IActionResult> UpdateProductAvailability(int id, [FromBody] bool isAvailable)
 {
@@ -102,6 +113,7 @@ public async Task<IActionResult> UpdateProductAvailability(int id, [FromBody] bo
     return Ok(new { message = "Availability updated successfully", isAvailable = isAvailable });    
 }
 
+//active vs inactive
 [HttpPut("{id}/update-active")]
 public async Task<IActionResult> UpdateProductActive(int id, [FromBody] bool isActive)
 {
@@ -113,4 +125,35 @@ public async Task<IActionResult> UpdateProductActive(int id, [FromBody] bool isA
 
     return Ok(new { message = "Active status updated successfully", isActive = isActive });    
 }
+[HttpPut("{id}/{date}/update-price")]
+public async Task<IActionResult> UpdatePriceWithEffectiveDate(int id, DateTime date, [FromBody] decimal newPrice)
+{
+    var product = await _context.Products.FindAsync(id);
+    if (product == null) return NotFound();
+
+    // Update the Product record
+    product.CurrentPricePerKg = newPrice;
+    product.UpdatedAt = DateTime.Now;
+
+    // Create the History entry with the provided effective date
+    var historyEntry = new PriceHistory
+    {
+        ProductId = id,
+        PricePerKg = newPrice,
+        EffectiveDate = date
+    };
+
+    _context.PriceHistories.Add(historyEntry);
+    await _context.SaveChangesAsync();
+
+    return Ok(new 
+    { 
+        message = "Price updated with effective date", 
+        currentPrice = product.CurrentPricePerKg,
+        effectiveDate = historyEntry.EffectiveDate 
+    });
 }
+
+
+}
+
