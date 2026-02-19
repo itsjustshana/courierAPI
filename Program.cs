@@ -24,9 +24,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("GlobalSyntaxPolicy", policy =>
     {
-        policy.WithOrigins("https://gsyntaxhosting.com", "http://gsyntaxhosting.com", "http://localhost:4200") 
+        policy.WithOrigins("https://gsyntaxhosting.com", "http://gsyntaxhosting.com", "http://localhost:4200", "https://freshv-gnf6c8cfhxbdc9gt.westus2-01.azurewebsites.net") 
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .SetPreflightMaxAge(TimeSpan.Zero);
     });
 });
 
