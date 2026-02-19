@@ -76,3 +76,4 @@ C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\refint\WarehouseApi.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.pdb
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.genruntimeconfig.cache
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\ref\WarehouseApi.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.sourcelink.json

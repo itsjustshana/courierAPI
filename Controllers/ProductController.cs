@@ -90,4 +90,27 @@ public async Task<IActionResult> UpdateProductImage(int id, [FromBody] string im
 
     return Ok(new { message = "Image updated successfully", image = img });
 }
+[HttpPut("{id}/update-availability")]
+public async Task<IActionResult> UpdateProductAvailability(int id, [FromBody] bool isAvailable)
+{
+    var product = await _context.Products.FindAsync(id);
+    if (product == null) return NotFound();
+
+    product.IsAvailable = isAvailable;
+    await _context.SaveChangesAsync();
+
+    return Ok(new { message = "Availability updated successfully", isAvailable = isAvailable });    
+}
+
+[HttpPut("{id}/update-active")]
+public async Task<IActionResult> UpdateProductActive(int id, [FromBody] bool isActive)
+{
+    var product = await _context.Products.FindAsync(id);
+    if (product == null) return NotFound();
+
+    product.IsActive = isActive;
+    await _context.SaveChangesAsync();
+
+    return Ok(new { message = "Active status updated successfully", isActive = isActive });    
+}
 }

@@ -11,6 +11,8 @@ public class Product
     public decimal CurrentPricePerKg { get; set; }
     public bool IsAvailable { get; set; } = true;
 
+    public bool IsActive { get; set; } = true;
+
     public string? Image { get; set; }
     
     // Tracks the last time the record was touched
