@@ -34,6 +34,19 @@ var app = builder.Build();
 app.UseRouting();
 app.UseCors("GlobalSyntaxPolicy");
 
+app.Use(async (context, next) =>
+{
+    // The Indexer replaces the value if it already exists
+    context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    context.Response.Headers["Pragma"] = "no-cache";
+    context.Response.Headers["Expires"] = "0";
+    
+    // Alternatively, use .Append if you want to keep existing values and add these
+    // context.Response.Headers.Append("Cache-Control", "no-cache");
+
+    await next();
+});
+
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
