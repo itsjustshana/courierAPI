@@ -19,7 +19,7 @@ public class ProductsController : ControllerBase
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
     {
-        return await _context.Products.ToListAsync();
+        return await _context.Products.AsNoTracking().ToListAsync();
     }
 
     // POST: api/Products

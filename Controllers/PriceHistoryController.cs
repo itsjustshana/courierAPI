@@ -23,7 +23,7 @@ namespace WarehouseApi.Controllers
             var history = await _context.PriceHistories
                 .Where(h => h.ProductId == productId)
                 .OrderByDescending(h => h.EffectiveDate)
-                .ToListAsync();
+                .AsNoTracking().ToListAsync();
 
             if (history == null || history.Count == 0)
             {
