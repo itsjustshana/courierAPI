@@ -7,6 +7,8 @@ public class PriceHistory
     
     // The price at that specific point in time
     public decimal PricePerKg { get; set; }
+
+    public string? UpdatedBy {get; set;}
     
     // The "Effective Date" - Defaults to the moment it's created
     public DateTime EffectiveDate { get; set; } = DateTime.Now;

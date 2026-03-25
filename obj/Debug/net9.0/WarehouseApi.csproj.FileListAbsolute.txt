@@ -45,15 +45,23 @@ C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\WarehouseApi.deps.json
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\WarehouseApi.runtimeconfig.json
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\WarehouseApi.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\WarehouseApi.pdb
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.AspNetCore.OpenApi.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.EntityFrameworkCore.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.EntityFrameworkCore.Abstractions.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.EntityFrameworkCore.Relational.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.IdentityModel.Logging.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.IdentityModel.Protocols.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.IdentityModel.Tokens.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Microsoft.OpenApi.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\MySqlConnector.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Pomelo.EntityFrameworkCore.MySql.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Scalar.AspNetCore.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Debug\net9.0\System.IdentityModel.Tokens.Jwt.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.csproj.AssemblyReference.cache
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\rpswa.dswa.cache.json
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.GeneratedMSBuildEditorConfig.editorconfig
@@ -62,6 +70,7 @@ C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.AssemblyInf
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.csproj.CoreCompileInputs.cache
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.MvcApplicationPartsAssemblyInfo.cs
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.sourcelink.json
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\rjimswa.dswa.cache.json
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\rjsmrazor.dswa.cache.json
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\rjsmcshtml.dswa.cache.json
@@ -76,4 +85,3 @@ C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\refint\WarehouseApi.dll
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.pdb
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.genruntimeconfig.cache
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\ref\WarehouseApi.dll
-C:\Users\shana\Desktop\cd\WarehouseApi\obj\Debug\net9.0\WarehouseApi.sourcelink.json

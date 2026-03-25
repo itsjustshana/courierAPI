@@ -38,3 +38,11 @@ C:\Users\shana\Desktop\cd\WarehouseApi\obj\Release\net9.0\linux-x64\refint\Wareh
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Release\net9.0\linux-x64\WarehouseApi.pdb
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Release\net9.0\linux-x64\WarehouseApi.genruntimeconfig.cache
 C:\Users\shana\Desktop\cd\WarehouseApi\obj\Release\net9.0\linux-x64\ref\WarehouseApi.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\Microsoft.IdentityModel.Logging.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\Microsoft.IdentityModel.Protocols.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\Microsoft.IdentityModel.Tokens.dll
+C:\Users\shana\Desktop\cd\WarehouseApi\bin\Release\net9.0\linux-x64\System.IdentityModel.Tokens.Jwt.dll
