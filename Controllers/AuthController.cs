@@ -19,7 +19,7 @@ public class AuthController : ControllerBase
     public IActionResult Login([FromBody] LoginModel login)
     {
         // For now, use a simple check. Later, you can pull from your MySQL Users table.
-        if (login.Username == "admin" && login.Password == "password123")
+        if ((login.Username == "admin" && login.Password == "adm!n567")||(login.Username == "sherman" && login.Password == "fre$hboss42"))
         {
             var token = GenerateJwtToken(login.Username);
            return Ok(new { 
