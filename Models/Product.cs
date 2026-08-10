@@ -20,6 +20,10 @@ public class Product
 
     public int CategoryId { get; set; }
 
+    public int client { get; set; }
+
+    
+
     // [JsonIgnore]
     // public Category? Category { get; set; }
 

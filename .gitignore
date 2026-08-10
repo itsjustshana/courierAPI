@@ -1,0 +1,8 @@
+bin/
+obj/
+.build-validation/
+
+# Local IDE and user-specific files
+.vs/
+*.user
+*.suo

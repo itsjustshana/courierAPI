@@ -1,56 +1,215 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using Microsoft.EntityFrameworkCore;
+using WarehouseApi.Data;
+using WarehouseApi.Dtos;
+using WarehouseApi.Models;
+using WarehouseApi.Services;
 
-[Route("api/[controller]")]
+namespace WarehouseApi.Controllers;
+
 [ApiController]
-public class AuthController : ControllerBase
+[Route("api/auth")]
+public sealed class AuthController(
+    WarehouseDbContext db,
+    IPasswordHasher<AppUser> passwordHasher,
+    JwtTokenService tokenService) : ControllerBase
 {
-    private readonly IConfiguration _config;
-
-    public AuthController(IConfiguration config)
+    [AllowAnonymous]
+    [HttpPost("register-tenant")]
+    public async Task<ActionResult<RegisterTenantResponse>> RegisterTenant(
+        RegisterTenantRequest request, CancellationToken cancellationToken)
     {
-        _config = config;
+        var username = request.Username.Trim();
+        var normalizedEmail = request.OwnerEmail.Trim().ToUpperInvariant();
+
+        if (await db.Users.AnyAsync(user =>
+                user.Username.ToUpper() == username.ToUpper() ||
+                user.NormalizedEmail == normalizedEmail, cancellationToken))
+            return Conflict(new { message = "Username or email is already in use." });
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var tenant = new Client
+        {
+            CompanyName = request.CompanyName.Trim(),
+            ContactName = request.ContactName?.Trim(),
+            Email = request.CompanyEmail?.Trim(),
+            Phone = request.Phone?.Trim(),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Clients.Add(tenant);
+        await db.SaveChangesAsync(cancellationToken);
+
+        var owner = new AppUser
+        {
+            ClientId = tenant.Id,
+            Username = username,
+            FirstName = request.FirstName.Trim(),
+            LastName = request.LastName.Trim(),
+            Email = request.OwnerEmail.Trim(),
+            NormalizedEmail = normalizedEmail,
+            Role = UserRoles.TenantOwner,
+            IsActive = true
+        };
+        owner.PasswordHash = passwordHasher.HashPassword(owner, request.Password);
+        db.Users.Add(owner);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Created($"/api/clients/{tenant.Id}", new RegisterTenantResponse(
+            tenant.Id, tenant.CompanyName, tokenService.Create(owner)));
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginModel login)
+    public async Task<ActionResult<LoginResponse>> Login(
+        LoginRequest request, CancellationToken cancellationToken)
     {
-        // For now, use a simple check. Later, you can pull from your MySQL Users table.
-        if ((login.Username == "admin" && login.Password == "adm!n567")||(login.Username == "sherman" && login.Password == "fre$hboss42"))
+        var login = request.UsernameOrEmail.Trim().ToUpperInvariant();
+        var user = await db.Users.SingleOrDefaultAsync(
+            candidate => candidate.Username.ToUpper() == login ||
+                         candidate.NormalizedEmail == login,
+            cancellationToken);
+
+        if (user is null || !user.IsActive)
+            return Unauthorized(new { message = "Invalid username or password." });
+
+        if (user.LockedUntil is DateTime lockedUntil && lockedUntil > DateTime.UtcNow)
+            return Unauthorized(new { message = "Account is temporarily locked." });
+
+        var result = passwordHasher.VerifyHashedPassword(
+            user, user.PasswordHash, request.Password);
+
+        if (result == PasswordVerificationResult.Failed)
         {
-            var token = GenerateJwtToken(login.Username);
-           return Ok(new { 
-            token = token, 
-            username = login.Username 
-        });
+            user.FailedLoginAttempts++;
+            if (user.FailedLoginAttempts >= 5)
+                user.LockedUntil = DateTime.UtcNow.AddMinutes(15);
+            await db.SaveChangesAsync(cancellationToken);
+            return Unauthorized(new { message = "Invalid username or password." });
         }
 
-        return Unauthorized();
+        if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
+
+        user.FailedLoginAttempts = 0;
+        user.LockedUntil = null;
+        user.LastLoginAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Ok(tokenService.Create(user));
     }
 
-    private string GenerateJwtToken(string username)
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<AuthenticatedUser>> Me(CancellationToken cancellationToken)
     {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
-        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+        var idValue = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idValue, out var userId))
+            return Unauthorized();
 
-        var claims = new[]
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(
+            candidate => candidate.Id == userId && candidate.IsActive,
+            cancellationToken);
+        if (user is null)
+            return Unauthorized();
+
+        return Ok(new AuthenticatedUser(
+            user.Id, user.ClientId, user.Username, user.FirstName,
+            user.LastName, user.Email, user.Role));
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword(
+        ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        var idValue = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idValue, out var userId))
+            return Unauthorized();
+
+        var user = await db.Users.SingleOrDefaultAsync(
+            candidate => candidate.Id == userId && candidate.IsActive,
+            cancellationToken);
+        if (user is null)
+            return Unauthorized();
+
+        var verification = passwordHasher.VerifyHashedPassword(
+            user, user.PasswordHash, request.CurrentPassword);
+        if (verification == PasswordVerificationResult.Failed)
+            return BadRequest(new { message = "Current password is incorrect." });
+
+        if (request.CurrentPassword == request.NewPassword)
+            return BadRequest(new { message = "New password must be different." });
+
+        user.PasswordHash = passwordHasher.HashPassword(user, request.NewPassword);
+        user.FailedLoginAttempts = 0;
+        user.LockedUntil = null;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [Authorize(Roles = UserRoles.SuperAdmin + "," + UserRoles.TenantOwner)]
+    [HttpPost("users")]
+    public async Task<ActionResult<AuthenticatedUser>> CreateUser(
+        CreateUserRequest request, CancellationToken cancellationToken)
+    {
+        if (!UserRoles.All.Contains(request.Role))
+            return BadRequest(new { message = "Unknown user role." });
+
+        var callerRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+        var callerTenant = User.FindFirst("tenant_id")?.Value;
+
+        int? tenantId = request.TenantId;
+        if (callerRole == UserRoles.TenantOwner)
         {
-            new Claim(JwtRegisteredClaimNames.Sub, username),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            if (!int.TryParse(callerTenant, out var resolvedTenantId))
+                return Forbid();
+            tenantId = resolvedTenantId;
+
+            if (request.Role is UserRoles.SuperAdmin or UserRoles.TenantOwner)
+                return Forbid();
+        }
+
+        if (request.Role is not (UserRoles.SuperAdmin or UserRoles.Bearer) && tenantId is null)
+            return BadRequest(new { message = "A tenant is required for this role." });
+
+        if (request.Role is UserRoles.SuperAdmin or UserRoles.Bearer)
+            tenantId = null;
+
+        if (tenantId is int id && !await db.Clients.AnyAsync(c => c.Id == id, cancellationToken))
+            return BadRequest(new { message = "Tenant does not exist." });
+
+        var username = request.Username.Trim();
+        var normalizedEmail = request.Email?.Trim().ToUpperInvariant();
+        if (await db.Users.AnyAsync(u => u.Username.ToUpper() == username.ToUpper() ||
+            (normalizedEmail != null && u.NormalizedEmail == normalizedEmail), cancellationToken))
+            return Conflict(new { message = "Username or email is already in use." });
+
+        var user = new AppUser
+        {
+            ClientId = tenantId,
+            Username = username,
+            FirstName = request.FirstName?.Trim(),
+            LastName = request.LastName?.Trim(),
+            Email = request.Email?.Trim(),
+            NormalizedEmail = normalizedEmail,
+            Role = request.Role,
+            IsActive = true
         };
+        user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
 
-        var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.Now.AddHours(8),
-            signingCredentials: credentials);
+        db.Users.Add(user);
+        await db.SaveChangesAsync(cancellationToken);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return Created($"/api/users/{user.Id}", new AuthenticatedUser(
+            user.Id, user.ClientId, user.Username, user.FirstName,
+            user.LastName, user.Email, user.Role));
     }
 }
-
-public class LoginModel { public string? Username { get; set; } public string? Password { get; set; } }
