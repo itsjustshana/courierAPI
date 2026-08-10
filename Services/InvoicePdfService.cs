@@ -108,6 +108,7 @@ public sealed class InvoicePdfService(IHttpClientFactory httpClientFactory)
         var rate = assignment.PerLbCost + assignment.PerLbMarkup;
         var freight = decimal.Round((package.Weight ?? 0) * rate, 2);
         var customs = package.CustomsCharges ?? 0;
+        var invoiceTotal = decimal.Round(freight + customs, 2);
         var paid = package.PaidDate.HasValue;
 
         return Document.Create(document =>
@@ -191,7 +192,7 @@ public sealed class InvoicePdfService(IHttpClientFactory httpClientFactory)
                         totals.Item().BorderTop(1).BorderColor("#D7DDD7").PaddingTop(10).Row(row =>
                         {
                             row.RelativeItem().Text("Invoice total").SemiBold();
-                            row.ConstantItem(120).AlignRight().Text($"JMD {assignment.InvoiceCost:N2}").FontSize(14).Bold();
+                            row.ConstantItem(120).AlignRight().Text($"JMD {invoiceTotal:N2}").FontSize(14).Bold();
                         });
                         totals.Item().PaddingTop(8).Row(row =>
                         {

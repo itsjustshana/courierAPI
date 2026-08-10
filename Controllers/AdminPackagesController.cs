@@ -440,8 +440,7 @@ public sealed class AdminPackagesController(
         assignment.PerLbMarkup = client.PerLbMarkup;
         assignment.InvoiceCost = decimal.Round(
             (package.Weight ?? 0) * (client.PerLbCost + client.PerLbMarkup) +
-            (package.CustomsCharges ?? 0) +
-            (package.AdditionalMarkup ?? 0), 2);
+            (package.CustomsCharges ?? 0), 2);
         package.InvoiceAmount = assignment.InvoiceCost;
         if (package.PaidDate is null)
             package.AmountDue = package.InvoiceAmount;
