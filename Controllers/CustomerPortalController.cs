@@ -11,9 +11,12 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.Customer)]
-[Route("api/customer")]
+[Route("apicour/customer")]
 public sealed class CustomerPortalController(WarehouseDbContext db, InvoicePdfService invoicePdfService) : ControllerBase
 {
+    private static readonly string[] PayableStatuses =
+        ["In Jamaica", "Out for Delivery", "Delivered, Awaiting Payment"];
+
     [HttpGet("profile")]
     public async Task<ActionResult<CustomerProfileResponse>> GetProfile(CancellationToken cancellationToken)
     {
@@ -33,19 +36,22 @@ public sealed class CustomerPortalController(WarehouseDbContext db, InvoicePdfSe
         if (!ContextIds(out var userId, out var tenantId)) return Forbid();
         var tenant = await db.Clients.AsNoTracking().SingleOrDefaultAsync(item => item.Id == tenantId && item.IsActive, cancellationToken);
         if (tenant is null) return NotFound(new { message = "Courier account is unavailable." });
+        var customer = await db.Users.AsNoTracking().SingleOrDefaultAsync(item =>
+            item.Id == userId && item.ClientId == tenantId && item.IsActive, cancellationToken);
+        if (customer is null) return NotFound(new { message = "Customer account is unavailable." });
         var packages = db.UserPackages.AsNoTracking().Where(item => item.Assignment != null && item.Assignment.ClientId == tenantId && item.Assignment.UserId == userId);
         var counts = await packages.Where(item => item.Status != null && item.Status != "").GroupBy(item => item.Status!)
             .Select(group => new { group.Key, Count = group.Count() }).ToDictionaryAsync(item => item.Key, item => item.Count, cancellationToken);
         var totals = await packages.GroupBy(_ => 1).Select(group => new
         {
-            Invoice = group.Sum(item => item.Assignment == null ? 0 :
-                (item.Weight ?? 0) * (item.Assignment.PerLbCost + item.Assignment.PerLbMarkup) + (item.CustomsCharges ?? 0)),
-            Due = group.Sum(item => item.PaidDate == null && item.Assignment != null
+            Due = group.Sum(item => item.PaidDate == null && item.Assignment != null &&
+                item.Status != null && PayableStatuses.Contains(item.Status)
                 ? (item.Weight ?? 0) * (item.Assignment.PerLbCost + item.Assignment.PerLbMarkup) + (item.CustomsCharges ?? 0)
                 : 0)
         }).FirstOrDefaultAsync(cancellationToken);
-        return Ok(new CustomerDashboardResponse(tenant.CompanyName, tenant.LogoUrl,
-            await packages.CountAsync(cancellationToken), totals?.Invoice ?? 0, totals?.Due ?? 0, counts));
+        return Ok(new CustomerDashboardResponse(tenant.CompanyName, tenant.LogoUrl, customer.FullName,
+            tenant.Address1, tenant.Address2, tenant.City, tenant.Zip, tenant.State,
+            await packages.CountAsync(cancellationToken), totals?.Due ?? 0, counts));
     }
 
     [HttpGet("packages")]
@@ -58,6 +64,7 @@ public sealed class CustomerPortalController(WarehouseDbContext db, InvoicePdfSe
         var query = db.UserPackages.AsNoTracking().Where(item => item.Assignment != null && item.Assignment.ClientId == tenantId && item.Assignment.UserId == userId);
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(item => item.Status == status.Trim());
         if (unpaidOnly) query = query.Where(item => item.PaidDate == null && item.Assignment != null &&
+            item.Status != null && PayableStatuses.Contains(item.Status) &&
             ((item.Weight ?? 0) * (item.Assignment.PerLbCost + item.Assignment.PerLbMarkup) + (item.CustomsCharges ?? 0)) > 0);
         if (!string.IsNullOrWhiteSpace(search)) { var term = search.Trim(); query = query.Where(item => item.PackageNumber.Contains(term) || (item.TrackingId != null && item.TrackingId.Contains(term)) || (item.Description != null && item.Description.Contains(term))); }
         var total = await query.CountAsync(cancellationToken);

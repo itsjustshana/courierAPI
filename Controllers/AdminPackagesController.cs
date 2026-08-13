@@ -11,7 +11,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin)]
-[Route("api/admin/packages")]
+[Route("apicour/admin/packages")]
 public sealed class AdminPackagesController(
     WarehouseDbContext db,
     InvoicePdfService invoicePdfService) : ControllerBase
@@ -20,10 +20,13 @@ public sealed class AdminPackagesController(
     public async Task<ActionResult<PagedResponse<AdminPackageResponse>>> GetPackages(
         [FromQuery] string? status,
         [FromQuery] int? tenantId,
+        [FromQuery] int? userId,
         [FromQuery] string assignment = "all",
         [FromQuery] string batch = "all",
         [FromQuery] string collection = "all",
+        [FromQuery] string payment = "all",
         [FromQuery] string? search = null,
+        [FromQuery] string sortBy = "created_desc",
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
@@ -37,6 +40,9 @@ public sealed class AdminPackagesController(
         if (tenantId is int selectedTenant)
             query = query.Where(package => package.Assignment != null &&
                                            package.Assignment.ClientId == selectedTenant);
+        if (userId is int selectedUser)
+            query = query.Where(package => package.Assignment != null &&
+                                           package.Assignment.UserId == selectedUser);
         if (assignment.Equals("assigned", StringComparison.OrdinalIgnoreCase))
             query = query.Where(package => package.Assignment != null);
         else if (assignment.Equals("unassigned", StringComparison.OrdinalIgnoreCase))
@@ -49,6 +55,10 @@ public sealed class AdminPackagesController(
             query = query.Where(package => package.SupplierCollectionItem != null);
         else if (collection.Equals("uncollected", StringComparison.OrdinalIgnoreCase))
             query = query.Where(package => package.SupplierCollectionItem == null);
+        if (payment.Equals("paid", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(package => package.PaidDate != null);
+        else if (payment.Equals("unpaid", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(package => package.PaidDate == null);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -60,9 +70,27 @@ public sealed class AdminPackagesController(
         }
 
         var totalItems = await query.CountAsync(cancellationToken);
-        var items = await query
-            .OrderByDescending(package => package.Created ?? package.CreatedAt)
-            .ThenByDescending(package => package.PackageId)
+        var orderedQuery = sortBy.Trim().ToLowerInvariant() switch
+        {
+            "created_asc" => query.OrderBy(package => package.Created ?? package.CreatedAt)
+                .ThenBy(package => package.PackageId),
+            "package_asc" => query.OrderBy(package => package.PackageNumber)
+                .ThenBy(package => package.PackageId),
+            "package_desc" => query.OrderByDescending(package => package.PackageNumber)
+                .ThenByDescending(package => package.PackageId),
+            "customer_asc" => query.OrderBy(package => package.FullName)
+                .ThenBy(package => package.PackageNumber),
+            "customer_desc" => query.OrderByDescending(package => package.FullName)
+                .ThenByDescending(package => package.PackageNumber),
+            "status_asc" => query.OrderBy(package => package.Status)
+                .ThenByDescending(package => package.Created ?? package.CreatedAt),
+            "status_desc" => query.OrderByDescending(package => package.Status)
+                .ThenByDescending(package => package.Created ?? package.CreatedAt),
+            _ => query.OrderByDescending(package => package.Created ?? package.CreatedAt)
+                .ThenByDescending(package => package.PackageId)
+        };
+
+        var items = await orderedQuery
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(package => new AdminPackageResponse(
@@ -127,9 +155,11 @@ public sealed class AdminPackagesController(
     [HttpGet("status-counts")]
     public async Task<ActionResult<IReadOnlyList<PackageStatusCount>>> GetStatusCounts(
         [FromQuery] int? tenantId,
+        [FromQuery] int? userId,
         [FromQuery] string assignment = "all",
         [FromQuery] string batch = "all",
         [FromQuery] string collection = "all",
+        [FromQuery] string payment = "all",
         [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
@@ -137,6 +167,9 @@ public sealed class AdminPackagesController(
         if (tenantId is int selectedTenant)
             query = query.Where(package => package.Assignment != null &&
                                            package.Assignment.ClientId == selectedTenant);
+        if (userId is int selectedUser)
+            query = query.Where(package => package.Assignment != null &&
+                                           package.Assignment.UserId == selectedUser);
         if (assignment.Equals("assigned", StringComparison.OrdinalIgnoreCase))
             query = query.Where(package => package.Assignment != null);
         else if (assignment.Equals("unassigned", StringComparison.OrdinalIgnoreCase))
@@ -149,6 +182,10 @@ public sealed class AdminPackagesController(
             query = query.Where(package => package.SupplierCollectionItem != null);
         else if (collection.Equals("uncollected", StringComparison.OrdinalIgnoreCase))
             query = query.Where(package => package.SupplierCollectionItem == null);
+        if (payment.Equals("paid", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(package => package.PaidDate != null);
+        else if (payment.Equals("unpaid", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(package => package.PaidDate == null);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -186,6 +223,23 @@ public sealed class AdminPackagesController(
             .Where(user => user.ClientId == tenantId && user.IsActive &&
                            user.Role != UserRoles.SuperAdmin)
             .OrderBy(user => user.FirstName)
+            .ThenBy(user => user.LastName)
+            .Select(user => new AuthenticatedUser(
+                user.Id, user.ClientId, user.Username, user.FirstName,
+                user.LastName, user.Email, user.Role))
+            .ToListAsync(cancellationToken);
+        return Ok(users);
+    }
+
+    [HttpGet("users")]
+    public async Task<ActionResult<IReadOnlyList<AuthenticatedUser>>> GetFilterUsers(
+        CancellationToken cancellationToken)
+    {
+        var users = await db.Users.AsNoTracking()
+            .Where(user => user.ClientId != null && user.IsActive &&
+                           user.Role != UserRoles.SuperAdmin && user.Role != UserRoles.Bearer)
+            .OrderBy(user => user.Client!.CompanyName)
+            .ThenBy(user => user.FirstName)
             .ThenBy(user => user.LastName)
             .Select(user => new AuthenticatedUser(
                 user.Id, user.ClientId, user.Username, user.FirstName,

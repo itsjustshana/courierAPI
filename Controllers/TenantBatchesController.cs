@@ -9,7 +9,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.TenantOwner)]
-[Route("api/tenant/batches")]
+[Route("apicour/tenant/batches")]
 public sealed class TenantBatchesController(WarehouseDbContext db) : ControllerBase
 {
     [HttpGet]

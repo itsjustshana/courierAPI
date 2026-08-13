@@ -51,6 +51,11 @@ builder.Services.AddCors(options =>
             .WithOrigins(
                 "https://gsyntaxhosting.com",
                 "https://gsyntaxhserver.com",
+                "https://gsyntaxserver.com",
+                "https://www.gsyntaxserver.com",
+                "https://portal.gopakglobal.com",
+                "https://my.gopakglobal.com",
+                "https://www.my.gopakglobal.com",
                 "http://gsyntaxserver.com",
                 "http://gsyntaxhosting.com",
                 "http://localhost:4200",
@@ -750,6 +755,13 @@ app.Use(async (context, next) =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/apicour", () => Results.Ok(new
+{
+    name = "MekMiCourier API",
+    status = "online",
+    version = "v1"
+})).AllowAnonymous();
 
 app.MapControllers();
 

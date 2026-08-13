@@ -11,7 +11,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin)]
-[Route("api/admin/package-batches")]
+[Route("apicour/admin/package-batches")]
 public sealed class PackageBatchesController(WarehouseDbContext db, InvoicePdfService invoicePdfService) : ControllerBase
 {
     [HttpGet]
@@ -105,7 +105,7 @@ public sealed class PackageBatchesController(WarehouseDbContext db, InvoicePdfSe
 
         var invoiceTotal = deliveryFee + assignments.Sum(assignment => assignment.InvoiceCost);
 
-        return Created($"/api/admin/package-batches/{batch.Id}", new PackageBatchResponse(
+        return Created($"/apicour/admin/package-batches/{batch.Id}", new PackageBatchResponse(
             batch.Id, batch.BatchNumber, batch.ClientId, client.CompanyName,
             batch.FulfillmentMethod, batch.Status, batch.ScheduledDate,
             batch.CompletedDate, batch.Items.Count, batch.CreatedAt, batch.Notes,

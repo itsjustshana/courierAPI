@@ -1,7 +1,8 @@
 namespace WarehouseApi.Dtos;
 
 public sealed record CustomerDashboardResponse(
-    string TenantName, string? LogoUrl, int TotalPackages, decimal TotalInvoiceValue,
+    string TenantName, string? LogoUrl, string? FullName, string? Address1, string? Address2,
+    string? City, string? Zip, string? State, int TotalPackages,
     decimal OutstandingBalance, IReadOnlyDictionary<string, int> PackagesByStatus);
 
 public sealed record CustomerProfileResponse(

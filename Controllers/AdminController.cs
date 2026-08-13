@@ -9,7 +9,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin)]
-[Route("api/admin")]
+[Route("apicour/admin")]
 public sealed class AdminController(WarehouseDbContext db) : ControllerBase
 {
     [HttpGet("overview")]
@@ -43,6 +43,11 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
                 client.ContactName,
                 client.Email,
                 client.Phone,
+                client.Address1,
+                client.Address2,
+                client.City,
+                client.Zip,
+                client.State,
                 client.LogoUrl,
                 client.PerLbCost,
                 client.PerLbMarkup,
@@ -71,6 +76,11 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
             ContactName = Clean(request.ContactName, 150),
             Email = Clean(request.Email, 255),
             Phone = Clean(request.Phone, 50),
+            Address1 = Clean(request.Address1, 255),
+            Address2 = Clean(request.Address2, 255),
+            City = Clean(request.City, 100),
+            Zip = Clean(request.Zip, 20),
+            State = Clean(request.State, 100),
             LogoUrl = Clean(request.LogoUrl, 2048),
             PerLbCost = decimal.Round(request.PerLbCost, 2),
             PerLbMarkup = decimal.Round(request.PerLbMarkup, 2),
@@ -81,8 +91,9 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
         };
         db.Clients.Add(tenant);
         await db.SaveChangesAsync(cancellationToken);
-        return Created($"/api/admin/tenants/{tenant.Id}", new TenantAdminResponse(
+        return Created($"/apicour/admin/tenants/{tenant.Id}", new TenantAdminResponse(
             tenant.Id, tenant.CompanyName, tenant.ContactName, tenant.Email, tenant.Phone,
+            tenant.Address1, tenant.Address2, tenant.City, tenant.Zip, tenant.State,
             tenant.LogoUrl, tenant.PerLbCost, tenant.PerLbMarkup, tenant.PerLbRate,
             tenant.BatchHandlingMode, tenant.DefaultDeliveryFee, tenant.IsActive, tenant.CreatedAt, 0));
     }
@@ -146,6 +157,11 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
         tenant.ContactName = Clean(request.ContactName, 150);
         tenant.Email = Clean(request.Email, 255);
         tenant.Phone = Clean(request.Phone, 50);
+        tenant.Address1 = Clean(request.Address1, 255);
+        tenant.Address2 = Clean(request.Address2, 255);
+        tenant.City = Clean(request.City, 100);
+        tenant.Zip = Clean(request.Zip, 20);
+        tenant.State = Clean(request.State, 100);
         tenant.LogoUrl = logoUrl;
         tenant.PerLbCost = decimal.Round(request.PerLbCost, 2);
         tenant.PerLbMarkup = decimal.Round(request.PerLbMarkup, 2);

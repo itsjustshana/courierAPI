@@ -11,7 +11,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin + "," + UserRoles.TenantOwner)]
-[Route("api/users")]
+[Route("apicour/users")]
 public sealed class UsersController(
     WarehouseDbContext db,
     IPasswordHasher<AppUser> passwordHasher) : ControllerBase

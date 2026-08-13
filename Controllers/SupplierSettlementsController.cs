@@ -10,7 +10,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin + "," + UserRoles.Bearer)]
-[Route("api/admin/supplier-settlements")]
+[Route("apicour/admin/supplier-settlements")]
 public sealed class SupplierSettlementsController(WarehouseDbContext db) : ControllerBase
 {
     [HttpGet]
@@ -105,7 +105,7 @@ public sealed class SupplierSettlementsController(WarehouseDbContext db) : Contr
         foreach (var packageId in packageIds) collection.Items.Add(new SupplierCollectionItem { PackageId = packageId });
         db.SupplierCollections.Add(collection);
         await db.SaveChangesAsync(cancellationToken);
-        return Created($"/api/admin/supplier-settlements/collections/{collection.Id}",
+        return Created($"/apicour/admin/supplier-settlements/collections/{collection.Id}",
             new SupplierCollectionResponse(collection.Id, collection.CollectionNumber, collection.SupplierName,
                 bearer?.Id, bearer?.Username, collection.Status, packageIds.Length, collection.Notes, collection.CreatedAt, null));
     }

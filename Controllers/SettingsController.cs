@@ -6,7 +6,7 @@ using WarehouseApi.Dtos;
 namespace WarehouseApi.Controllers;
 
 [ApiController]
-[Route("api/settings")]
+[Route("apicour/settings")]
 public sealed class SettingsController(WarehouseDbContext db) : ControllerBase
 {
     [HttpGet]

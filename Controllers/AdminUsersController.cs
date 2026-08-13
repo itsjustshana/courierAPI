@@ -11,7 +11,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin)]
-[Route("api/admin/users")]
+[Route("apicour/admin/users")]
 public sealed class AdminUsersController(WarehouseDbContext db, IPasswordHasher<AppUser> passwordHasher) : ControllerBase
 {
     [HttpGet]
@@ -72,9 +72,28 @@ public sealed class AdminUsersController(WarehouseDbContext db, IPasswordHasher<
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
         db.Users.Add(user);
         await db.SaveChangesAsync(cancellationToken);
-        return Created($"/api/admin/users/{user.Id}", new AdminUserResponse(
+        return Created($"/apicour/admin/users/{user.Id}", new AdminUserResponse(
             user.Id, user.ClientId, tenant?.CompanyName, user.Username, user.FirstName,
             user.LastName, user.Email, user.Role, user.IsActive, user.CreatedAt, null));
+    }
+
+    [HttpGet("{id:int}/dashboard-preview")]
+    public async Task<ActionResult<UserDashboardPreviewResponse>> GetDashboardPreview(int id, CancellationToken cancellationToken)
+    {
+        var user = await db.Users.AsNoTracking().Include(item => item.Client).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (user is null) return NotFound(new { message = "User does not exist." });
+        var packages = db.UserPackages.AsNoTracking().AsQueryable();
+        if (user.Role == UserRoles.Customer) packages = packages.Where(item => item.Assignment != null && item.Assignment.UserId == id);
+        else if (user.ClientId is int tenantId) packages = packages.Where(item => item.Assignment != null && item.Assignment.ClientId == tenantId);
+        else if (user.Role == UserRoles.Bearer) packages = packages.Where(item => item.SupplierCollectionItem != null && item.SupplierCollectionItem.Collection.BearerUserId == id);
+        var totals = await packages.GroupBy(_ => 1).Select(group => new { Count=group.Count(), Invoice=group.Sum(item=>item.InvoiceAmount??0), Due=group.Sum(item=>item.PaidDate==null?item.AmountDue??0:0) }).FirstOrDefaultAsync(cancellationToken);
+        var counts = await packages.Where(item=>item.Status!=null&&item.Status!="").GroupBy(item=>item.Status!).Select(group=>new{group.Key,Count=group.Count()}).ToDictionaryAsync(item=>item.Key,item=>item.Count,cancellationToken);
+        var recent = await packages.OrderByDescending(item=>item.Created??item.CreatedAt).ThenByDescending(item=>item.PackageId).Take(20).Select(item=>new UserDashboardPreviewPackage(item.PackageId,item.PackageNumber,item.TrackingId,item.FullName,item.Status,item.Weight,item.InvoiceAmount,item.AmountDue,item.PaidDate,item.Created??item.CreatedAt)).ToListAsync(cancellationToken);
+        var collections=db.SupplierCollections.AsNoTracking().Where(item=>item.BearerUserId==id);
+        var totalCollections=user.Role==UserRoles.Bearer?await collections.CountAsync(cancellationToken):0;
+        var openCollections=user.Role==UserRoles.Bearer?await collections.CountAsync(item=>item.Status=="Open",cancellationToken):0;
+        var name=$"{user.FirstName} {user.LastName}".Trim();
+        return Ok(new UserDashboardPreviewResponse(user.Id,string.IsNullOrWhiteSpace(name)?user.Username:name,user.Username,user.Role,user.Client?.CompanyName,user.IsActive,totals?.Count??0,totals?.Invoice??0,totals?.Due??0,totalCollections,openCollections,counts,recent));
     }
 
     [HttpPut("{id:int}")]

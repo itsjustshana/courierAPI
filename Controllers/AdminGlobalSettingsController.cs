@@ -9,7 +9,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin)]
-[Route("api/admin/global-settings")]
+[Route("apicour/admin/global-settings")]
 public sealed class AdminGlobalSettingsController(WarehouseDbContext db) : ControllerBase
 {
     [HttpGet]

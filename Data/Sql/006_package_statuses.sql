@@ -18,7 +18,7 @@ INSERT INTO `package_statuses` (`name`, `display_order`, `is_active`) VALUES
   ('Delayed', 3, 1),
   ('In Jamaica', 4, 1),
   ('Out for Delivery', 5, 1),
-  ('Delivered, Awaiting Pickup', 6, 1),
+  ('Delivered, Awaiting Payment', 6, 1),
   ('Delivered', 7, 1)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),

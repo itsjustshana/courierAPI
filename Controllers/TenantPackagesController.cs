@@ -10,7 +10,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.TenantOwner)]
-[Route("api/tenant/packages")]
+[Route("apicour/tenant/packages")]
 public sealed class TenantPackagesController(WarehouseDbContext db, InvoicePdfService invoicePdfService) : ControllerBase
 {
     [HttpGet]

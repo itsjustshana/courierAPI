@@ -10,7 +10,7 @@ using WarehouseApi.Services;
 namespace WarehouseApi.Controllers;
 
 [ApiController]
-[Route("api/auth")]
+[Route("apicour/auth")]
 public sealed class AuthController(
     WarehouseDbContext db,
     IPasswordHasher<AppUser> passwordHasher,
@@ -59,7 +59,7 @@ public sealed class AuthController(
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return Created($"/api/clients/{tenant.Id}", new RegisterTenantResponse(
+        return Created($"/apicour/clients/{tenant.Id}", new RegisterTenantResponse(
             tenant.Id, tenant.CompanyName, tokenService.Create(owner)));
     }
 
@@ -208,7 +208,7 @@ public sealed class AuthController(
         db.Users.Add(user);
         await db.SaveChangesAsync(cancellationToken);
 
-        return Created($"/api/users/{user.Id}", new AuthenticatedUser(
+        return Created($"/apicour/users/{user.Id}", new AuthenticatedUser(
             user.Id, user.ClientId, user.Username, user.FirstName,
             user.LastName, user.Email, user.Role));
     }

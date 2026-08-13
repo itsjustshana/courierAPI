@@ -9,7 +9,7 @@ namespace WarehouseApi.Controllers;
 
 [ApiController]
 [Authorize(Roles = UserRoles.TenantOwner)]
-[Route("api/tenant/dashboard")]
+[Route("apicour/tenant/dashboard")]
 public sealed class TenantDashboardController(WarehouseDbContext db) : ControllerBase
 {
     [HttpGet]

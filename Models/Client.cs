@@ -23,6 +23,21 @@ public class Client
     [Column("phone")]
     public string? Phone { get; set; }
 
+    [Column("address1")]
+    public string? Address1 { get; set; }
+
+    [Column("address2")]
+    public string? Address2 { get; set; }
+
+    [Column("city")]
+    public string? City { get; set; }
+
+    [Column("zip")]
+    public string? Zip { get; set; }
+
+    [Column("state")]
+    public string? State { get; set; }
+
     [Column("logo_url")]
     public string? LogoUrl { get; set; }
 
