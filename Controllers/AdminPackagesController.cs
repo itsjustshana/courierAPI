@@ -32,7 +32,7 @@ public sealed class AdminPackagesController(
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 10, 100);
+        pageSize = Math.Clamp(pageSize, 25, 500);
 
         var query = db.UserPackages.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(status))
@@ -345,7 +345,6 @@ public sealed class AdminPackagesController(
         if (status is not null && !await db.PackageStatuses.AnyAsync(
                 item => item.IsActive && item.Name == status, cancellationToken))
             return BadRequest(new { message = "Select an active package status." });
-
         AppUser? selectedUser = null;
         Client? selectedClient = null;
         if (changesAssignment)
@@ -375,8 +374,9 @@ public sealed class AdminPackagesController(
             {
                 package.PaidDate = request.PaidDate?.Date ??
                     (delivered ? DateTime.UtcNow.Date : null);
-                if (package.PaidDate is null)
-                    package.AmountDue = package.InvoiceAmount;
+                package.AmountDue = package.PaidDate is null
+                    ? (package.InvoiceAmount ?? 0) + (package.CustomsCharges ?? 0)
+                    : 0;
             }
 
         if (selectedUser is not null)
@@ -421,6 +421,7 @@ public sealed class AdminPackagesController(
             item => item.PackageId == packageId, cancellationToken);
         if (package is null)
             return NotFound(new { message = "Package does not exist." });
+        var existingInvoiceAmount = package.InvoiceAmount;
 
         var packageNumber = request.PackageNumber.Trim();
         if (string.IsNullOrWhiteSpace(packageNumber))
@@ -430,7 +431,7 @@ public sealed class AdminPackagesController(
         if (request.TrackingId?.Trim().Length > 100 || request.FullName?.Trim().Length > 100 ||
             request.Description?.Trim().Length > 255 || request.Status?.Trim().Length > 50)
             return BadRequest(new { message = "One or more text values exceed the allowed length." });
-        if (new[] { request.Weight, request.AmountDue, request.CustomsCharges, request.AdditionalMarkup, request.SupplierAmount }
+        if (new[] { request.Weight, request.InvoiceAmount, request.AmountDue, request.CustomsCharges, request.AdditionalMarkup, request.SupplierAmount }
             .Any(value => value < 0))
             return BadRequest(new { message = "Package amounts and weight cannot be negative." });
 
@@ -438,6 +439,10 @@ public sealed class AdminPackagesController(
         if (status is not null && !await db.PackageStatuses.AnyAsync(
                 item => item.IsActive && item.Name == status, cancellationToken))
             return BadRequest(new { message = "Select an active package status." });
+        var isDelivered = status?.Equals("Delivered", StringComparison.OrdinalIgnoreCase) == true;
+        if (isDelivered && request.InvoiceAmount.HasValue &&
+            request.InvoiceAmount.Value != (existingInvoiceAmount ?? 0))
+            return BadRequest(new { message = "The invoice amount cannot be changed after a package is delivered." });
 
         static string? Optional(string? value) =>
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -455,18 +460,33 @@ public sealed class AdminPackagesController(
         package.SupplierPaidDate = request.SupplierPaidDate?.Date;
         package.SupplierPaymentReference = string.IsNullOrWhiteSpace(request.SupplierPaymentReference) ? null : request.SupplierPaymentReference.Trim();
         package.PaidDate = request.PaidDate?.Date;
-        if (status?.Equals("Delivered", StringComparison.OrdinalIgnoreCase) == true &&
+        if (isDelivered &&
             package.PaidDate is null)
             package.PaidDate = DateTime.UtcNow.Date;
-        if (package.PaidDate is null)
-            package.AmountDue = package.InvoiceAmount;
-
         if (package.Assignment is not null)
         {
             var client = await db.Clients.SingleAsync(
                 item => item.Id == package.Assignment.ClientId, cancellationToken);
             ApplyInvoiceCost(package.Assignment, package, client);
         }
+
+        if (isDelivered)
+        {
+            package.InvoiceAmount = existingInvoiceAmount;
+            if (package.Assignment is not null)
+                package.Assignment.InvoiceCost = existingInvoiceAmount ?? 0;
+        }
+        else if (request.InvoiceAmount.HasValue)
+        {
+            var overriddenInvoiceAmount = decimal.Round(request.InvoiceAmount.Value, 2);
+            package.InvoiceAmount = overriddenInvoiceAmount;
+            if (package.Assignment is not null)
+                package.Assignment.InvoiceCost = overriddenInvoiceAmount;
+        }
+
+        package.AmountDue = package.PaidDate is null
+            ? (package.InvoiceAmount ?? 0) + (package.CustomsCharges ?? 0)
+            : 0;
 
         await db.SaveChangesAsync(cancellationToken);
         return NoContent();
@@ -493,10 +513,10 @@ public sealed class AdminPackagesController(
         assignment.PerLbCost = client.PerLbCost;
         assignment.PerLbMarkup = client.PerLbMarkup;
         assignment.InvoiceCost = decimal.Round(
-            (package.Weight ?? 0) * (client.PerLbCost + client.PerLbMarkup) +
-            (package.CustomsCharges ?? 0), 2);
+            (package.Weight ?? 0) * client.PerLbCost + client.PerLbMarkup, 2);
         package.InvoiceAmount = assignment.InvoiceCost;
-        if (package.PaidDate is null)
-            package.AmountDue = package.InvoiceAmount;
+        package.AmountDue = package.PaidDate is null
+            ? package.InvoiceAmount + (package.CustomsCharges ?? 0)
+            : 0;
     }
 }

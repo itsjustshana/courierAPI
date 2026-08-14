@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WarehouseApi.Data;
 using WarehouseApi.Dtos;
 using WarehouseApi.Models;
+using WarehouseApi.Services;
 using System.Security.Claims;
 
 namespace WarehouseApi.Controllers;
@@ -11,7 +12,7 @@ namespace WarehouseApi.Controllers;
 [ApiController]
 [Authorize(Roles = UserRoles.SuperAdmin + "," + UserRoles.Bearer)]
 [Route("apicour/admin/supplier-settlements")]
-public sealed class SupplierSettlementsController(WarehouseDbContext db) : ControllerBase
+public sealed class SupplierSettlementsController(WarehouseDbContext db, InvoicePdfService invoicePdfService) : ControllerBase
 {
     [HttpGet]
     [Authorize(Roles = UserRoles.SuperAdmin)]
@@ -100,6 +101,7 @@ public sealed class SupplierSettlementsController(WarehouseDbContext db) : Contr
             SupplierName = supplier,
             BearerUserId = bearer?.Id,
             CreatedByUserId = actorId,
+            CollectionDate = request.CollectionDate?.Date ?? DateTime.UtcNow.Date,
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()[..Math.Min(request.Notes.Trim().Length, 500)]
         };
         foreach (var packageId in packageIds) collection.Items.Add(new SupplierCollectionItem { PackageId = packageId });
@@ -107,7 +109,7 @@ public sealed class SupplierSettlementsController(WarehouseDbContext db) : Contr
         await db.SaveChangesAsync(cancellationToken);
         return Created($"/apicour/admin/supplier-settlements/collections/{collection.Id}",
             new SupplierCollectionResponse(collection.Id, collection.CollectionNumber, collection.SupplierName,
-                bearer?.Id, bearer?.Username, collection.Status, packageIds.Length, collection.Notes, collection.CreatedAt, null));
+                bearer?.Id, bearer?.Username, collection.Status, packageIds.Length, collection.Notes, collection.CollectionDate, null, collection.CreatedAt, null));
     }
 
     [HttpGet("collections/uncollected")]
@@ -129,7 +131,7 @@ public sealed class SupplierSettlementsController(WarehouseDbContext db) : Contr
     }
 
     [HttpGet("collections")]
-    public async Task<ActionResult<IReadOnlyList<SupplierCollectionResponse>>> GetCollections(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<SupplierCollectionResponse>>> GetCollections([FromQuery] string payment = "all", CancellationToken cancellationToken = default)
     {
         var query = db.SupplierCollections.AsNoTracking().AsQueryable();
         if (User.IsInRole(UserRoles.Bearer))
@@ -137,12 +139,50 @@ public sealed class SupplierSettlementsController(WarehouseDbContext db) : Contr
             if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var bearerId)) return Forbid();
             query = query.Where(collection => collection.BearerUserId == bearerId);
         }
+        if (payment.Equals("paid", StringComparison.OrdinalIgnoreCase)) query = query.Where(collection => collection.PaidDate != null);
+        else if (payment.Equals("unpaid", StringComparison.OrdinalIgnoreCase)) query = query.Where(collection => collection.PaidDate == null);
         return Ok(await query.OrderByDescending(collection => collection.CreatedAt).Take(200)
             .Select(collection => new SupplierCollectionResponse(collection.Id, collection.CollectionNumber,
                 collection.SupplierName, collection.BearerUserId,
                 collection.BearerUser == null ? null : collection.BearerUser.Username,
-                collection.Status, collection.Items.Count, collection.Notes, collection.CreatedAt, collection.CompletedAt))
+                collection.Status, collection.Items.Count, collection.Notes, collection.CollectionDate, collection.PaidDate, collection.CreatedAt, collection.CompletedAt))
             .ToListAsync(cancellationToken));
+    }
+
+    [HttpPut("collections/{collectionId:int}/paid-date")]
+    [Authorize(Roles = UserRoles.SuperAdmin)]
+    public async Task<IActionResult> UpdateCollectionPaidDate(int collectionId, UpdateCollectionPaidDateRequest request, CancellationToken cancellationToken)
+    {
+        var collection = await db.SupplierCollections.SingleOrDefaultAsync(item => item.Id == collectionId, cancellationToken);
+        if (collection is null) return NotFound();
+        collection.PaidDate = request.PaidDate?.Date;
+        await db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpGet("collections/{collectionId:int}/pdf")]
+    [Authorize(Roles = UserRoles.SuperAdmin)]
+    public async Task<IActionResult> DownloadCollectionPdf(int collectionId, CancellationToken cancellationToken)
+    {
+        var collection = await db.SupplierCollections.AsNoTracking()
+            .Include(item => item.BearerUser).Include(item => item.Items).ThenInclude(item => item.Package)
+            .SingleOrDefaultAsync(item => item.Id == collectionId, cancellationToken);
+        if (collection is null) return NotFound();
+        if (collection.Status != "Completed") return Conflict(new { message = "Only completed collections can be downloaded." });
+        var settings = await db.GlobalSettings.AsNoTracking().OrderBy(item => item.Id).FirstOrDefaultAsync(cancellationToken);
+        var pdf = await invoicePdfService.GenerateCollectionAsync(collection, settings?.AppName ?? "MekMiCourier", settings?.LogoUrl, cancellationToken);
+        return File(pdf, "application/pdf", $"collection-{collection.CollectionNumber}.pdf");
+    }
+
+    [HttpPut("collections/{collectionId:int}/date")]
+    public async Task<IActionResult> UpdateCollectionDate(int collectionId, UpdateCollectionDateRequest request, CancellationToken cancellationToken)
+    {
+        if (request.CollectionDate == default) return BadRequest(new { message = "Collection date is required." });
+        var collection = await AccessibleCollection(collectionId).SingleOrDefaultAsync(cancellationToken);
+        if (collection is null) return NotFound();
+        collection.CollectionDate = request.CollectionDate.Date;
+        await db.SaveChangesAsync(cancellationToken);
+        return NoContent();
     }
 
     [HttpGet("collections/{collectionId:int}/packages")]

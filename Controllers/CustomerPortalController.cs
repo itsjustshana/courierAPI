@@ -46,7 +46,7 @@ public sealed class CustomerPortalController(WarehouseDbContext db, InvoicePdfSe
         {
             Due = group.Sum(item => item.PaidDate == null && item.Assignment != null &&
                 item.Status != null && PayableStatuses.Contains(item.Status)
-                ? (item.Weight ?? 0) * (item.Assignment.PerLbCost + item.Assignment.PerLbMarkup) + (item.CustomsCharges ?? 0)
+                ? item.Assignment.InvoiceCost + (item.CustomsCharges ?? 0)
                 : 0)
         }).FirstOrDefaultAsync(cancellationToken);
         return Ok(new CustomerDashboardResponse(tenant.CompanyName, tenant.LogoUrl, customer.FullName,
@@ -65,15 +65,15 @@ public sealed class CustomerPortalController(WarehouseDbContext db, InvoicePdfSe
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(item => item.Status == status.Trim());
         if (unpaidOnly) query = query.Where(item => item.PaidDate == null && item.Assignment != null &&
             item.Status != null && PayableStatuses.Contains(item.Status) &&
-            ((item.Weight ?? 0) * (item.Assignment.PerLbCost + item.Assignment.PerLbMarkup) + (item.CustomsCharges ?? 0)) > 0);
+            (item.Assignment.InvoiceCost + (item.CustomsCharges ?? 0)) > 0);
         if (!string.IsNullOrWhiteSpace(search)) { var term = search.Trim(); query = query.Where(item => item.PackageNumber.Contains(term) || (item.TrackingId != null && item.TrackingId.Contains(term)) || (item.Description != null && item.Description.Contains(term))); }
         var total = await query.CountAsync(cancellationToken);
         var items = await query.OrderByDescending(item => item.Created ?? item.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize)
             .Select(item => new TenantPackageResponse(item.PackageId, item.PackageNumber, item.TrackingId, item.FullName,
                 item.Description, item.Status, item.Weight, item.Assignment == null ? 0 :
-                    (item.Weight ?? 0) * (item.Assignment.PerLbCost + item.Assignment.PerLbMarkup) + (item.CustomsCharges ?? 0),
+                    item.Assignment.InvoiceCost,
                 item.CustomsCharges ?? 0, item.PaidDate == null && item.Assignment != null
-                    ? (item.Weight ?? 0) * (item.Assignment.PerLbCost + item.Assignment.PerLbMarkup) + (item.CustomsCharges ?? 0)
+                    ? item.Assignment.InvoiceCost + (item.CustomsCharges ?? 0)
                     : 0,
                 item.PaidDate, item.Created, null))
             .ToListAsync(cancellationToken);

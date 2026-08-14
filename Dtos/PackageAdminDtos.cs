@@ -57,6 +57,7 @@ public sealed record UpdatePackageRequest(
     string? Description,
     string? Status,
     decimal? Weight,
+    decimal? InvoiceAmount,
     decimal? AmountDue,
     decimal? CustomsCharges,
     decimal? AdditionalMarkup,

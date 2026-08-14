@@ -14,6 +14,8 @@ public sealed class SupplierCollection
     [Column("completed_at")] public DateTime? CompletedAt { get; set; }
     [Column("created_by_user_id")] public int CreatedByUserId { get; set; }
     [Column("notes")] public string? Notes { get; set; }
+    [Column("collection_date")] public DateTime CollectionDate { get; set; } = DateTime.UtcNow.Date;
+    [Column("paid_date")] public DateTime? PaidDate { get; set; }
     [Column("created_at")] public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public AppUser CreatedByUser { get; set; } = null!;
     public AppUser? BearerUser { get; set; }

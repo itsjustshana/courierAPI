@@ -51,7 +51,7 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
                 client.LogoUrl,
                 client.PerLbCost,
                 client.PerLbMarkup,
-                client.PerLbCost + client.PerLbMarkup,
+                client.PerLbCost,
                 client.BatchHandlingMode,
                 client.DefaultDeliveryFee,
                 client.IsActive,
@@ -178,13 +178,14 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
             assignment.PerLbCost = tenant.PerLbCost;
             assignment.PerLbMarkup = tenant.PerLbMarkup;
             assignment.InvoiceCost = decimal.Round(
-                (assignment.Package.Weight ?? 0) * (tenant.PerLbCost + tenant.PerLbMarkup) +
-                (assignment.Package.CustomsCharges ?? 0) +
-                (assignment.Package.AdditionalMarkup ?? 0), 2);
+                (assignment.Package.Weight ?? 0) * tenant.PerLbCost + tenant.PerLbMarkup, 2);
             assignment.Package.InvoiceAmount = assignment.InvoiceCost;
-            if (assignment.Package.PaidDate is null) assignment.Package.AmountDue = assignment.InvoiceCost;
+            assignment.Package.AmountDue = assignment.Package.PaidDate is null
+                ? assignment.InvoiceCost + (assignment.Package.CustomsCharges ?? 0)
+                : 0;
             assignment.UpdatedAt = DateTime.UtcNow;
         }
+
         await db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
@@ -217,12 +218,11 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
             assignment.PerLbCost = tenant.PerLbCost;
             assignment.PerLbMarkup = tenant.PerLbMarkup;
             assignment.InvoiceCost = decimal.Round(
-                (assignment.Package.Weight ?? 0) * (tenant.PerLbCost + tenant.PerLbMarkup) +
-                (assignment.Package.CustomsCharges ?? 0) +
-                (assignment.Package.AdditionalMarkup ?? 0), 2);
+                (assignment.Package.Weight ?? 0) * tenant.PerLbCost + tenant.PerLbMarkup, 2);
             assignment.Package.InvoiceAmount = assignment.InvoiceCost;
-            if (assignment.Package.PaidDate is null)
-                assignment.Package.AmountDue = assignment.Package.InvoiceAmount;
+            assignment.Package.AmountDue = assignment.Package.PaidDate is null
+                ? assignment.InvoiceCost + (assignment.Package.CustomsCharges ?? 0)
+                : 0;
             assignment.UpdatedAt = DateTime.UtcNow;
         }
         await db.SaveChangesAsync(cancellationToken);
@@ -231,7 +231,7 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
             tenant.Id,
             tenant.PerLbCost,
             tenant.PerLbMarkup,
-            PerLbRate = tenant.PerLbCost + tenant.PerLbMarkup
+            PerLbRate = tenant.PerLbCost
         });
     }
 
@@ -263,4 +263,5 @@ public sealed class AdminController(WarehouseDbContext db) : ControllerBase
             return "Logo URL must be an HTTP(S) or data-image URL.";
         return null;
     }
+
 }

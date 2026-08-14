@@ -64,5 +64,5 @@ public class Client
     public ICollection<PackageBatch> PackageBatches { get; set; } = new List<PackageBatch>();
 
     [NotMapped]
-    public decimal PerLbRate => PerLbCost + PerLbMarkup;
+    public decimal PerLbRate => PerLbCost;
 }

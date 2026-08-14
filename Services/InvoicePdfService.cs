@@ -7,6 +7,42 @@ namespace WarehouseApi.Services;
 
 public sealed class InvoicePdfService(IHttpClientFactory httpClientFactory)
 {
+    public async Task<byte[]> GenerateCollectionAsync(SupplierCollection collection, string appName, string? logoUrl, CancellationToken cancellationToken)
+    {
+        var logo = await LoadLogoAsync(logoUrl, cancellationToken);
+        return Document.Create(document => document.Page(page =>
+        {
+            page.Size(PageSizes.A4); page.Margin(42); page.DefaultTextStyle(style => style.FontSize(9).FontColor("#243437"));
+            page.Header().Row(row =>
+            {
+                row.RelativeItem().Height(58).Element(container => { if (logo is not null) container.MaxWidth(155).Image(logo).FitArea(); else container.Text(appName).FontSize(20).SemiBold(); });
+                row.ConstantItem(230).AlignRight().Column(column => { column.Item().AlignRight().Text("SUPPLIER COLLECTION").FontSize(22).Bold(); column.Item().AlignRight().Text(collection.CollectionNumber).FontColor("#687775"); });
+            });
+            page.Content().PaddingTop(22).Column(column =>
+            {
+                column.Spacing(16);
+                column.Item().Row(row =>
+                {
+                    row.RelativeItem().Column(details => { details.Item().Text("SUPPLIER").FontSize(8).Bold().FontColor("#7B8986"); details.Item().PaddingTop(5).Text(collection.SupplierName).FontSize(14).SemiBold(); details.Item().Text($"Bearer: {collection.BearerUser?.FullName ?? collection.BearerUser?.Username ?? "Unassigned"}").FontColor("#687775"); });
+                    row.ConstantItem(190).AlignRight().Column(meta => { meta.Item().AlignRight().Text(collection.PaidDate.HasValue ? "PAID" : "UNPAID").FontSize(11).Bold().FontColor(collection.PaidDate.HasValue ? "#2F7437" : "#A13F32"); meta.Item().AlignRight().Text($"Collection date: {collection.CollectionDate:dd MMM yyyy}"); meta.Item().AlignRight().Text(collection.PaidDate.HasValue ? $"Paid date: {collection.PaidDate:dd MMM yyyy}" : "Payment pending"); });
+                });
+                column.Item().Background("#F2F4EF").Padding(14).Row(row => { Summary(row.RelativeItem(), "Packages received", collection.Items.Count.ToString()); Summary(row.RelativeItem(), "Collection date", collection.CollectionDate.ToString("dd MMM yyyy")); });
+                column.Item().Table(table =>
+                {
+                    table.ColumnsDefinition(columns => { columns.RelativeColumn(); columns.RelativeColumn(1.4f); columns.RelativeColumn(2); });
+                    table.Header(header => { header.Cell().Element(HeaderCell).Text("PACKAGE"); header.Cell().Element(HeaderCell).Text("TRACKING"); header.Cell().Element(HeaderCell).Text("CUSTOMER / DESCRIPTION"); });
+                    foreach (var item in collection.Items.OrderBy(item => item.Package.PackageNumber))
+                    {
+                        table.Cell().Element(BodyCell).Text($"#{item.Package.PackageNumber}").SemiBold(); table.Cell().Element(BodyCell).Text(item.Package.TrackingId ?? "—");
+                        table.Cell().Element(BodyCell).Column(cell => { cell.Item().Text(item.Package.FullName ?? "Unknown customer"); cell.Item().Text(item.Package.Description ?? "No description").FontSize(8).FontColor("#687775"); });
+                    }
+                });
+                if (!string.IsNullOrWhiteSpace(collection.Notes)) column.Item().Text($"Notes: {collection.Notes}").FontColor("#687775");
+            });
+            page.Footer().BorderTop(1).BorderColor("#E1E5E0").PaddingTop(10).Row(row => { row.RelativeItem().Text($"Issued by {appName}").FontSize(8); row.RelativeItem().AlignRight().Text(text => { text.Span("Page "); text.CurrentPageNumber(); }); });
+        })).GeneratePdf();
+    }
+
     public async Task<byte[]> GenerateBatchAsync(
         PackageBatch batch,
         string appName,
@@ -105,10 +141,13 @@ public sealed class InvoicePdfService(IHttpClientFactory httpClientFactory)
         CancellationToken cancellationToken)
     {
         var logo = await LoadLogoAsync(client.LogoUrl, cancellationToken);
-        var rate = assignment.PerLbCost + assignment.PerLbMarkup;
-        var freight = decimal.Round((package.Weight ?? 0) * rate, 2);
         var customs = package.CustomsCharges ?? 0;
-        var invoiceTotal = decimal.Round(freight + customs, 2);
+        var invoiceTotal = decimal.Round(
+            package.InvoiceAmount ?? assignment.InvoiceCost, 2);
+        var freight = invoiceTotal;
+        var amountDue = package.PaidDate.HasValue
+            ? 0
+            : decimal.Round(invoiceTotal + customs, 2);
         var paid = package.PaidDate.HasValue;
 
         return Document.Create(document =>
@@ -183,7 +222,7 @@ public sealed class InvoicePdfService(IHttpClientFactory httpClientFactory)
                             header.Cell().Element(HeaderCell).AlignRight().Text("AMOUNT");
                         });
 
-                        Line(table, $"Freight ({package.Weight ?? 0:0.##} lb)", $"JMD {rate:N2}/lb", freight);
+                        Line(table, $"Freight ({package.Weight ?? 0:0.##} lb)", string.Empty, freight);
                         Line(table, "Customs duties", string.Empty, customs);
                     });
 
@@ -191,13 +230,13 @@ public sealed class InvoicePdfService(IHttpClientFactory httpClientFactory)
                     {
                         totals.Item().BorderTop(1).BorderColor("#D7DDD7").PaddingTop(10).Row(row =>
                         {
-                            row.RelativeItem().Text("Invoice total").SemiBold();
+                            row.RelativeItem().Text("Invoice amount").SemiBold();
                             row.ConstantItem(120).AlignRight().Text($"JMD {invoiceTotal:N2}").FontSize(14).Bold();
                         });
                         totals.Item().PaddingTop(8).Row(row =>
                         {
                             row.RelativeItem().Text("Amount due").FontColor("#687775");
-                            row.ConstantItem(120).AlignRight().Text($"JMD {package.AmountDue ?? 0:N2}").SemiBold();
+                            row.ConstantItem(120).AlignRight().Text($"JMD {amountDue:N2}").SemiBold();
                         });
                     });
 
